@@ -5,6 +5,7 @@ import 'rxjs/add/observable/forkJoin';
 import 'rxjs/add/operator/toPromise';
 import 'rxjs/add/operator/filter';
 import 'rxjs/add/operator/pairwise';
+import 'rxjs/add/operator/map';
 
 import { LocalizeParser } from './localize-router.parser';
 import { LocalizeRouterSettings } from './localize-router.config';
@@ -45,11 +46,13 @@ export class LocalizeRouterService {
    * @param useNavigateMethod
    */
   changeLanguage(lang: string, extras?: NavigationExtras, useNavigateMethod?: boolean): void {
-    if (lang !== this.parser.currentLang) {
+    const oldLang = this.parser.currentLang;
+    if (lang !== oldLang) {
       let rootSnapshot: ActivatedRouteSnapshot = this.router.routerState.snapshot.root;
 
       this.parser.translateRoutes(lang).subscribe(() => {
         let url = this.traverseRouteSnapshot(rootSnapshot);
+        url = this.parser.switchUrlLang(url, oldLang, this.parser.currentLang);
 
         if (!this.settings.alwaysSetPrefix) {
           let urlSegments = url.split('/');
@@ -72,6 +75,7 @@ export class LocalizeRouterService {
           url = urlSegments.join('/');
         }
 
+        this.router.resetConfig(this.parser.routes);
         if (useNavigateMethod) {
           this.router.navigate([url], extras);
         } else {
@@ -155,6 +159,7 @@ export class LocalizeRouterService {
       if (currentLang !== previousLang) {
         this.parser.translateRoutes(currentLang).subscribe(() => {
           // Fire route change event
+          this.router.resetConfig(this.parser.routes);
           this.routerEvents.next(currentLang);
         });
       }

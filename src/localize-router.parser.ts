@@ -1,7 +1,6 @@
 import { Routes, Route } from '@angular/router';
 import { TranslateService } from '@ngx-translate/core';
 import { Observable } from 'rxjs/Observable';
-import { Observer } from 'rxjs/Observer';
 import { Location } from '@angular/common';
 import 'rxjs/add/observable/forkJoin';
 import 'rxjs/add/operator/share';
@@ -124,13 +123,13 @@ export abstract class LocalizeParser {
    * @returns {Promise<any>}
    */
   translateRoutes(language: string): Observable<any> {
-    return new Observable<any>((observer: Observer<any>) => {
-      this._cachedLang = language;
-      if (this._languageRoute) {
-        this._languageRoute.path = language;
-      }
+    this._cachedLang = language;
+    if (this._languageRoute) {
+      this._languageRoute.path = language;
+    }
 
-      this.translate.use(language).subscribe((translations: any) => {
+    return this.translate.use(language).
+      map((translations: any) => {
         this._translationObject = translations;
         this.currentLang = language;
 
@@ -146,10 +145,7 @@ export abstract class LocalizeParser {
           this._translateRouteTree(this.routes);
         }
 
-        observer.next(void 0);
-        observer.complete();
       });
-    });
   }
 
   /**
@@ -354,6 +350,90 @@ export abstract class LocalizeParser {
     let res = this.translate.getParsedResult(this._translationObject, this.prefix + key);
     return res || key;
   }
+
+  /**
+   * Get url from a language to an other
+   * @param url old url
+   * @param oldLand old language
+   * @param newLang new language
+   */
+  public switchUrlLang(url: string, oldLand: string, newLang: string): string {
+    const revertedTranslation = this.getFlatReverteTranslations();
+    let urlParts = url.split('/').slice(1);
+    if (urlParts[0] === oldLand) {
+      urlParts = urlParts.slice(1);
+    }
+    const allLangs = this.translate.langs;
+    urlParts = urlParts.map(part => {
+      let trans: string = revertedTranslation[part];
+      if (trans) { // Finded translation
+        allLangs.forEach(lang => {
+          const langWithPrefix = `${lang}.${this.prefix}`;
+          if (trans.startsWith(langWithPrefix)) {
+            trans = trans.replace(langWithPrefix, '');
+          }
+        });
+      } else { // Not finded translation
+        if (part.startsWith(this.prefix)) {
+          trans = part.replace(this.prefix, '');
+        }
+      }
+      return trans;
+    });
+    const untranslatedRoute = `/${urlParts.join('/')}`;
+    let newTranslatedRoute = this.translateRoute(untranslatedRoute);
+    newTranslatedRoute = this.settings.alwaysSetPrefix ? `/${this.urlPrefix}${newTranslatedRoute}` : newTranslatedRoute;
+    return newTranslatedRoute;
+  }
+
+  /**
+   * Get all translations in a flaten object with keys reverted by values
+   */
+  private getFlatReverteTranslations() {
+    let result = this.translate.translations;
+    result = this.flattenObject(result);
+    return this.invertObject(result);
+  }
+
+  /**
+   * Flat an object
+   * @param ob object to flat
+   */
+  private flattenObject(ob: any): any { // https://gist.github.com/penguinboy/762197
+    const toReturn: any = {};
+    for (var i in ob) {
+      if (!ob.hasOwnProperty(i)) {
+        continue;
+      }
+      if ((typeof ob[i]) === 'object') {
+        var flatObject = this.flattenObject(ob[i]);
+        for (var x in flatObject) {
+          if (!flatObject.hasOwnProperty(x)) {
+            continue;
+          }
+          toReturn[i + '.' + x] = flatObject[x];
+        }
+      } else {
+        toReturn[i] = ob[i];
+      }
+    }
+    return toReturn;
+  }
+
+  /**
+   * Invert keys and values of an object
+   * @param obj object to manipulate
+   */
+  private invertObject(obj: any): any {
+    const ret: any = {};
+    for(const key in obj) {
+      if (obj.hasOwnProperty(key)) {
+        ret[obj[key]] = key;
+      }
+    }
+    return ret;
+  }
+
 }
 
 /**
