@@ -380,7 +380,7 @@ export abstract class LocalizeParser {
       }
       return trans;
     });
-    const untranslatedRoute = `/${urlParts.join('/')}`;
+    const untranslatedRoute = urlParts.length === 0 ? '' : `/${urlParts.join('/')}`;
     let newTranslatedRoute = this.translateRoute(untranslatedRoute);
     newTranslatedRoute = this.settings.alwaysSetPrefix ? `/${this.urlPrefix}${newTranslatedRoute}` : newTranslatedRoute;
     return newTranslatedRoute;
